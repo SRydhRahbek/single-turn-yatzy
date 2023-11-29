@@ -20,8 +20,8 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 
 fn main() {
-    let games_per_update: u32 = 100;
-    let updates: u32 = 10;
+    let games_per_update: u32 = 1000;
+    let updates: u32 = 1;
 
     //###################################################################################
 
