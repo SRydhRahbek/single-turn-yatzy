@@ -85,6 +85,17 @@ impl Board {
         return board;
     }
 
+    pub fn new_only(cat: Category) -> Board {
+        let mut board = Board::new();
+        for category in Category::all_categories() {
+            if category == cat {
+                continue;
+            }
+            board.0.insert(category, Some(0));
+        }
+        return board;
+    }
+
     // S:   Check if supplied Category is empty
     pub fn category_empty(&self, category: Category) -> bool {
         self.0

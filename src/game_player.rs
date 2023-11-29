@@ -6,14 +6,12 @@ use crate::logic::{Board, Category, Hand, Mask, Maskhand, MaskhandKey};
 //use fraction::convert::TryToConvertFrom;
 use std::fmt;
 
-pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> String{
+pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> String {
     //Initialize the game
     let empty_return_mask = Mask::empty();
     let all_hands = Hand::all_hands();
-    
 
-
-    let mut board = Board::new(); // S:   Create a board with a 0 in 'Chance' with Board::zero_chance()
+    let mut board = Board::new_only(Category::Treor); // S:   Create a board with a 0 in 'Chance' with Board::zero_chance()
 
     //HashMap to match each hand in the final step to it's point value in each caregory
     let mut final_step_evalmap: HashMap<&Hand, HashMap<Category, u32>> = HashMap::new();
@@ -74,11 +72,11 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> String{
         }
     }
     let analysis: BoardAnalysis = BoardAnalysis::new(&board);
-    
+
     //println!("Board: {}", board);
     //println!("{}", analysis);
 
-    let analysis_string : String =  format!(
+    let analysis_string: String = format!(
         "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
         analysis.finalboard[&Category::Ettor],
         analysis.finalboard[&Category::Tvaor],
@@ -98,12 +96,9 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> String{
         analysis.bonus,
         analysis.total_score
     );
-    
+
     return analysis_string;
 }
-
-
-
 
 //=======================================
 
@@ -185,7 +180,6 @@ pub struct BoardAnalysis {
 
 impl BoardAnalysis {
     fn new(board: &Board) -> BoardAnalysis {
-        
         let mut top_category_score = 0;
         for category in Category::all_categories().drain(..6) {
             top_category_score += board.get(category).unwrap();
@@ -200,13 +194,12 @@ impl BoardAnalysis {
         };
 
         let mut finalboard: HashMap<Category, u32> = HashMap::new();
-        for category in Category::all_categories(){
+        for category in Category::all_categories() {
             finalboard.insert(category, board.get(category).unwrap());
         }
-        if fill_chance != 0{
-            //finalboard.remove_entry(&Category::Chans);
-            finalboard.insert(Category::Chans, fill_chance);
-        }
+        //if fill_chance != 0 {
+        //finalboard.insert(Category::Chans, fill_chance);
+        //}
 
         let mut total_score = 0;
         for category in Category::all_categories() {
