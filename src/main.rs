@@ -20,7 +20,7 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 
 fn main() {
-    let games_per_update: u32 = 1000;
+    let games_per_update: u32 = 100;
     let updates: u32 = 1;
 
     //###################################################################################
@@ -29,11 +29,6 @@ fn main() {
     println!("Generating hashmaps...\nStart time: {:?}", start_time);
 
     let maskhandmap = Maskhand::get_maskhandmap(); //generate the expensive Maskhandmap
-                                                   /*
-
-
-
-                                                   *///PLAYING GAMES
 
     let t_1 = Instant::now();
     println!("Time taken: {:?}\nSimulating games...", t_1 - start_time);

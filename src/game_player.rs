@@ -11,7 +11,7 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> String {
     let empty_return_mask = Mask::empty();
     let all_hands = Hand::all_hands();
 
-    let mut board = Board::new(); // S:   Create a board with a 0 in 'Chance' with Board::zero_chance()
+    let mut board = Board::new_only(Category::Kak); // S:   Create a board with a 0 in 'Chance' with Board::zero_chance()
 
     //HashMap to match each hand in the final step to it's point value in each caregory
     let mut final_step_evalmap: HashMap<&Hand, HashMap<Category, u32>> = HashMap::new();
@@ -23,9 +23,40 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> String {
 
     //TODO: input the actual order in which we want to cross out the categories
     let crossout_order_list = Category::all_categories();
-    let sara_crossout_order_list : Vec<Category> = vec![Category::Ettor, Category:: Yatzy, Category::LitenStraight, Category::StorStraight, Category::Kak, Category::Tvaor, Category::Fyrtal, Category::Treor, Category::Fyror, Category::Tretal, Category::Femmor, Category::Par, Category::Tvapar, Category::Sexor, Category::Chans];
-    let david_crossout_order_list : Vec<Category> = vec![Category::LitenStraight, Category:: StorStraight, Category::Yatzy, Category::Fyrtal, Category::Kak, Category::Ettor, Category::Tvaor, Category::Tretal, Category::Tvapar, Category::Treor, Category::Par, Category::Fyror, Category::Femmor, Category::Sexor, Category::Chans];
-
+    let sara_crossout_order_list: Vec<Category> = vec![
+        Category::Ettor,
+        Category::Yatzy,
+        Category::LitenStraight,
+        Category::StorStraight,
+        Category::Tvaor,
+        Category::Fyrtal,
+        Category::Treor,
+        Category::Kak,
+        Category::Fyror,
+        Category::Tretal,
+        Category::Femmor,
+        Category::Par,
+        Category::Tvapar,
+        Category::Sexor,
+        Category::Chans,
+    ];
+    let david_crossout_order_list: Vec<Category> = vec![
+        Category::LitenStraight,
+        Category::StorStraight,
+        Category::Yatzy,
+        Category::Fyrtal,
+        Category::Kak,
+        Category::Ettor,
+        Category::Tvaor,
+        Category::Tretal,
+        Category::Tvapar,
+        Category::Treor,
+        Category::Par,
+        Category::Fyror,
+        Category::Femmor,
+        Category::Sexor,
+        Category::Chans,
+    ];
 
     let mut empty_categories = board.empty_categories();
     loop {
@@ -60,7 +91,8 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> String {
                 .filter(|x| x != &category)
                 .collect();
         } else {
-            for category in &david_crossout_order_list { // can switch crossout order list 
+            for category in &david_crossout_order_list {
+                // can switch crossout order list
                 if empty_categories.contains(category) {
                     board.place_value_in_category(0, *category);
                     empty_categories = empty_categories
@@ -197,7 +229,7 @@ impl BoardAnalysis {
             0
         };
         */
-        
+
         let mut finalboard: HashMap<Category, u32> = HashMap::new();
         for category in Category::all_categories() {
             finalboard.insert(category, board.get(category).unwrap());
