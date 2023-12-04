@@ -97,6 +97,9 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> (String, Vec<St
         }
 
         hand.reroll_with_mask(&best_mask);
+        if is_subset_straight(&mut hand.0.clone()) {
+            straight_data_vec.push(StraightData::new(hand.clone(), hand.0.clone(), 3, empty_categories.clone()));
+        }
         //println!("{hand:?}");
         let hand_value_category = hand.evaluate(&board);
 
