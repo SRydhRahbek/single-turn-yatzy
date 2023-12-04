@@ -20,7 +20,7 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 
 fn main() {
-    let games_per_update: u32 = 100;
+    let games_per_update: u32 = 1;
     let updates: u32 = 1;
 
     //###################################################################################
@@ -55,13 +55,6 @@ fn main() {
         let _ = write_to_file(output_vec, file); //Writes the result to simulated parties into "data.txt"
                                                  //Will I get punished by my cheap error handling?
     }
-    /*
-
-
-
-
-
-    */
 
     let end_time = Instant::now();
     println!(

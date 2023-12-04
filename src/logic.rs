@@ -373,6 +373,20 @@ pub struct MaskhandKey {
     pub mask: Mask,
 }
 
+pub fn is_subset_straight(subset: &mut Vec<u32>) -> bool {
+    if subset.len() < 3 {
+        return false;
+    }
+    subset.sort();
+    let mut duplicate_free_subset = subset.clone();
+    duplicate_free_subset.dedup();
+    if duplicate_free_subset.len() == subset.len() {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 impl MaskhandKey {
     //Turns the MaskhandKey into a Subset - will be used later for finding out when the algorithm is going for straight
     pub fn merge_to_subset(&self) -> Vec<u32> {
