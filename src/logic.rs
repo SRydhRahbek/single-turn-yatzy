@@ -11,6 +11,29 @@ use fraction::GenericFraction;
 type F = GenericFraction<u32>;
 
 //================================================================================
+// StraightData
+//================================================================================
+#[derive(Debug)]
+pub struct StraightData {
+    pub hand: Hand,
+    pub subset: Vec<u32>,
+    pub slag: u32,
+    pub empty_categories: Vec<Category>,
+}
+
+impl StraightData {
+    pub fn new(hand: Hand, subset: Vec<u32>, slag: u32, empty_categories: Vec<Category>) -> StraightData {
+        StraightData {
+            hand,
+            subset,
+            slag,
+            empty_categories,
+        }       
+    }
+}
+
+
+//================================================================================
 // Category
 //================================================================================
 
