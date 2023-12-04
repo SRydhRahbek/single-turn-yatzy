@@ -47,6 +47,34 @@ impl Hand {
 
         if board
             .0
+            .get(&Category::StorStraight)
+            .expect("Missing Stor Straight")
+            .is_none()
+            && best_value < 20
+        {
+            let val = self.eval_stor_straight();
+            if val > best_value {
+                best_value = val;
+                best_category = Some(Category::StorStraight);
+            }
+        }
+
+        if board
+            .0
+            .get(&Category::LitenStraight)
+            .expect("Missing Liten Straight")
+            .is_none()
+            && best_value < 15
+        {
+            let val = self.eval_liten_straight();
+            if val > best_value {
+                best_value = val;
+                best_category = Some(Category::LitenStraight);
+            }
+        }
+
+        if board
+            .0
             .get(&Category::Chans)
             .expect("Missing Chans")
             .is_none()
@@ -120,20 +148,6 @@ impl Hand {
 
         if board
             .0
-            .get(&Category::StorStraight)
-            .expect("Missing Stor Straight")
-            .is_none()
-            && best_value < 20
-        {
-            let val = self.eval_stor_straight();
-            if val > best_value {
-                best_value = val;
-                best_category = Some(Category::StorStraight);
-            }
-        }
-
-        if board
-            .0
             .get(&Category::Fyror)
             .expect("Missing Fyror")
             .is_none()
@@ -157,20 +171,6 @@ impl Hand {
             if val > best_value {
                 best_value = val;
                 best_category = Some(Category::Tretal);
-            }
-        }
-
-        if board
-            .0
-            .get(&Category::LitenStraight)
-            .expect("Missing Liten Straight")
-            .is_none()
-            && best_value < 15
-        {
-            let val = self.eval_liten_straight();
-            if val > best_value {
-                best_value = val;
-                best_category = Some(Category::LitenStraight);
             }
         }
 

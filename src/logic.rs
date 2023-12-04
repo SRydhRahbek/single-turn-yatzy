@@ -11,6 +11,29 @@ use fraction::GenericFraction;
 type F = GenericFraction<u32>;
 
 //================================================================================
+// StraightData
+//================================================================================
+#[derive(Debug)]
+pub struct StraightData {
+    pub hand: Hand,
+    pub subset: Vec<u32>,
+    pub slag: u32,
+    pub empty_categories: Vec<Category>,
+}
+
+impl StraightData {
+    pub fn new(hand: Hand, subset: Vec<u32>, slag: u32, empty_categories: Vec<Category>) -> StraightData {
+        StraightData {
+            hand,
+            subset,
+            slag,
+            empty_categories,
+        }       
+    }
+}
+
+
+//================================================================================
 // Category
 //================================================================================
 
@@ -371,6 +394,20 @@ impl Maskhand {
 pub struct MaskhandKey {
     pub hand: Hand,
     pub mask: Mask,
+}
+
+pub fn is_subset_straight(subset: &mut Vec<u32>) -> bool {
+    if subset.len() < 3 {
+        return false;
+    }
+    subset.sort();
+    let mut duplicate_free_subset = subset.clone();
+    duplicate_free_subset.dedup();
+    if duplicate_free_subset.len() == subset.len() {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 impl MaskhandKey {

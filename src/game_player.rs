@@ -2,16 +2,16 @@ use fraction::GenericFraction;
 use std::collections::HashMap;
 //use std::sync::Arc;
 type F = GenericFraction<u32>;
-use crate::logic::{Board, Category, Hand, Mask, Maskhand, MaskhandKey};
+use crate::logic::{Board, Category, Hand, Mask, Maskhand, MaskhandKey, is_subset_straight, StraightData};
 //use fraction::convert::TryToConvertFrom;
 use std::fmt;
 
-pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> String {
+pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> (String, Vec<StraightData>) {
     //Initialize the game
     let empty_return_mask = Mask::empty();
     let all_hands = Hand::all_hands();
 
-    let mut board = Board::new_only(Category::Kak); // S:   Create a board with a 0 in 'Chance' with Board::zero_chance()
+    let mut board = Board::zero_chance(); // S:   Create a board with a 0 in 'Chance' with Board::zero_chance()
 
     //HashMap to match each hand in the final step to it's point value in each caregory
     let mut final_step_evalmap: HashMap<&Hand, HashMap<Category, u32>> = HashMap::new();
@@ -59,6 +59,7 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> String {
     ];
 
     let mut empty_categories = board.empty_categories();
+    let mut straight_data_vec: Vec<StraightData> = Vec::new();
     loop {
         let step3_best_evalmap = get_final_step_best_evalmap(
             &empty_categories,
@@ -76,13 +77,29 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> String {
             .get(&hand)
             .expect("step1 best doesn't contain all hands")
             .0;
+
+        let maskhand_to_subset = MaskhandKey::from(hand.clone(), *best_mask);
+        let mut subset = maskhand_to_subset.merge_to_subset();
+        if is_subset_straight(&mut subset) {
+            straight_data_vec.push(StraightData::new(hand.clone(), subset, 1, empty_categories.clone()))
+        }
+
         hand.reroll_with_mask(&best_mask);
         let best_mask = step2_best_evalmap
             .get(&hand)
             .expect("step2 best doesn't contain all hands")
             .0;
+
+        let maskhand_to_subset = MaskhandKey::from(hand.clone(), *best_mask);
+        let mut subset = maskhand_to_subset.merge_to_subset();
+        if is_subset_straight(&mut subset) {
+            straight_data_vec.push(StraightData::new(hand.clone(), subset, 2, empty_categories.clone()))
+        }
+
         hand.reroll_with_mask(&best_mask);
+        //println!("{hand:?}");
         let hand_value_category = hand.evaluate(&board);
+
 
         if let Some(category) = hand_value_category.1 {
             board.place_value_in_category(hand_value_category.0, category);
@@ -132,7 +149,7 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> String {
         analysis.total_score
     );
 
-    return analysis_string;
+    return (analysis_string, straight_data_vec);
 }
 
 //=======================================

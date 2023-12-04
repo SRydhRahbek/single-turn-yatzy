@@ -11,7 +11,7 @@ use fraction::GenericFraction;
 //use std::collections::HashMap;
 //use std::path::Path;
 type F = GenericFraction<u32>;
-use crate::logic::{Board, Hand, Maskhand}; //Category, Mask, MaskhandKey
+use crate::logic::{Board, Hand, Maskhand, StraightData}; //Category, Mask, MaskhandKey
                                            //use fraction::convert::TryToConvertFrom;
 use rayon::prelude::*;
 use std::time::Instant;
@@ -20,7 +20,7 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 
 fn main() {
-    let games_per_update: u32 = 100;
+    let games_per_update: u32 = 10;
     let updates: u32 = 1;
 
     //###################################################################################
@@ -34,12 +34,13 @@ fn main() {
     println!("Time taken: {:?}\nSimulating games...", t_1 - start_time);
 
     for i in 1..=updates {
-        let output_vec: Vec<String> = (0..games_per_update)
+        let output_doublevec: Vec<(String, Vec<StraightData>)> = (0..games_per_update)
             .into_par_iter()
             .map(|_x| game_player::play_game(maskhandmap.clone()))
             .collect();
         //.for_each(|_x| game_player::play_game(maskhandmap.clone()));
-
+        let (output_vec, straightdata_unflat_vec): (Vec<String>, Vec<Vec<StraightData>>) = output_doublevec.into_iter().unzip();
+        let straightdata_flat_vec = straightdata_unflat_vec.into_iter().flatten().collect::<Vec<StraightData>>();
         println!(
             "{} out of {} games played. Sharing results...\nTime taken: {:?}",
             i * games_per_update,
@@ -50,18 +51,18 @@ fn main() {
         let file = OpenOptions::new()
             .create(true)
             .append(true)
+            .open("straight choices.txt")
+            .unwrap();
+        let _ = write_straight_stuff_to_file(straightdata_flat_vec, file);
+
+        let file = OpenOptions::new()
+            .create(true)
+            .append(true)
             .open("data.txt")
             .unwrap();
         let _ = write_to_file(output_vec, file); //Writes the result to simulated parties into "data.txt"
                                                  //Will I get punished by my cheap error handling?
     }
-    /*
-
-
-
-
-
-    */
 
     let end_time = Instant::now();
     println!(
@@ -70,6 +71,14 @@ fn main() {
         end_time - start_time,
         (end_time - t_1) / (updates * games_per_update)
     );
+}
+
+fn write_straight_stuff_to_file(vec: Vec<StraightData>, mut file: File) ->  std::io::Result<()> {
+    writeln!(file, "Hand\tSubset\tEmpty categories\tSlag index");
+    vec.iter().for_each(|straight_thing| {
+        writeln!(file, "{}\t{:?}\t{:?}\t{}", straight_thing.hand, straight_thing.subset, straight_thing.empty_categories, straight_thing.slag);
+    });
+    Ok(())
 }
 
 fn write_to_file(vec: Vec<String>, mut file: File) -> std::io::Result<()> {
