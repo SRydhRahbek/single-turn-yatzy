@@ -10,3 +10,4 @@ fraction = "0.13.1"
 itertools = "0.10.5"
 rand = "0.8.5"
 rayon = "1.2.0"
+uuid = {version = "1.6.1", features=["v7"]}

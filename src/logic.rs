@@ -19,15 +19,17 @@ pub struct StraightData {
     pub subset: Vec<u32>,
     pub slag: u32,
     pub empty_categories: Vec<Category>,
+    pub uuid: String,
 }
 
 impl StraightData {
-    pub fn new(hand: Hand, subset: Vec<u32>, slag: u32, empty_categories: Vec<Category>) -> StraightData {
+    pub fn new(hand: Hand, subset: Vec<u32>, slag: u32, empty_categories: Vec<Category>, uuid: String) -> StraightData {
         StraightData {
             hand,
             subset,
             slag,
             empty_categories,
+            uuid,
         }       
     }
 }

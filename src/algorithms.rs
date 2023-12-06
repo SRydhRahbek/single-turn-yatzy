@@ -323,11 +323,7 @@ impl Hand {
         if self.eval_tvapar() == 0 || self.eval_tretal() == 0 {
             return 0;
         }
-        let mut score: u32 = 0;
-        for x in 1..=6 {
-            score += self.count_instances(x) * x;
-        }
-        return score;
+        return self.0.iter().sum();
     }
 
     fn eval_yatzy(&self) -> u32 {

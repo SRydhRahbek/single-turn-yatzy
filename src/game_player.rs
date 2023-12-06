@@ -1,5 +1,6 @@
 use fraction::GenericFraction;
 use std::collections::HashMap;
+use uuid::Uuid;
 //use std::sync::Arc;
 type F = GenericFraction<u32>;
 use crate::logic::{Board, Category, Hand, Mask, Maskhand, MaskhandKey, is_subset_straight, StraightData};
@@ -71,7 +72,7 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> (String, Vec<St
         let step2_best_evalmap = transform_to_best_evalmap(&maskhandmap, step2_evalmap);
         let step1_evalmap = get_next_evalmap(&maskhandmap, &step2_best_evalmap);
         let step1_best_evalmap = transform_to_best_evalmap(&maskhandmap, step1_evalmap);
-
+        let uuid = format!("{}", Uuid::now_v7());
         let mut hand = Hand::random();
         let best_mask = step1_best_evalmap
             .get(&hand)
@@ -81,7 +82,7 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> (String, Vec<St
         let maskhand_to_subset = MaskhandKey::from(hand.clone(), *best_mask);
         let mut subset = maskhand_to_subset.merge_to_subset();
         if is_subset_straight(&mut subset) {
-            straight_data_vec.push(StraightData::new(hand.clone(), subset, 1, empty_categories.clone()))
+            straight_data_vec.push(StraightData::new(hand.clone(), subset, 1, empty_categories.clone(), uuid.clone()))
         }
 
         hand.reroll_with_mask(&best_mask);
@@ -93,16 +94,13 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> (String, Vec<St
         let maskhand_to_subset = MaskhandKey::from(hand.clone(), *best_mask);
         let mut subset = maskhand_to_subset.merge_to_subset();
         if is_subset_straight(&mut subset) {
-            straight_data_vec.push(StraightData::new(hand.clone(), subset, 2, empty_categories.clone()))
+            straight_data_vec.push(StraightData::new(hand.clone(), subset, 2, empty_categories.clone(), uuid.clone()))
         }
 
         hand.reroll_with_mask(&best_mask);
-<<<<<<< HEAD
-=======
         if is_subset_straight(&mut hand.0.clone()) {
-            straight_data_vec.push(StraightData::new(hand.clone(), hand.0.clone(), 3, empty_categories.clone()));
+            straight_data_vec.push(StraightData::new(hand.clone(), hand.0.clone(), 3, empty_categories.clone(), uuid.clone()));
         }
->>>>>>> origin/working
         //println!("{hand:?}");
         let hand_value_category = hand.evaluate(&board);
 

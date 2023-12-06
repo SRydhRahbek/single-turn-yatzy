@@ -74,9 +74,9 @@ fn main() {
 }
 
 fn write_straight_stuff_to_file(vec: Vec<StraightData>, mut file: File) ->  std::io::Result<()> {
-    writeln!(file, "Hand\tSubset\tEmpty categories\tSlag index");
+    writeln!(file, "uuid\tHand\tSubset\tEmpty categories\tSlag index");
     vec.iter().for_each(|straight_thing| {
-        writeln!(file, "{}\t{:?}\t{:?}\t{}", straight_thing.hand, straight_thing.subset, straight_thing.empty_categories, straight_thing.slag);
+        writeln!(file, "{}\t{}\t{:?}\t{:?}\t{}", straight_thing.uuid, straight_thing.hand, straight_thing.subset, straight_thing.empty_categories, straight_thing.slag);
     });
     Ok(())
 }
