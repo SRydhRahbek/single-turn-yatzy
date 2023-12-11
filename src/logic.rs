@@ -2,6 +2,7 @@ use itertools::Itertools;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::fmt;
+use uuid::Uuid;
 
 //================================================================================
 // Fraction
@@ -9,6 +10,130 @@ use std::fmt;
 
 use fraction::GenericFraction;
 type F = GenericFraction<u32>;
+
+//================================================================================
+// StraightState
+//================================================================================
+
+#[derive(Debug, Clone)]
+pub enum StraightState {
+    SmallLucky,
+    SmallStrategized,
+    LargeLucky,
+    LargeStrategized,
+    Failed,
+    No,
+}
+
+impl StraightState {
+    pub fn update(&mut self, deduped_subset: &Vec<u32>) {
+        match self {
+            StraightState::No => {
+                if deduped_subset.len() >= 3 {
+                    if deduped_subset == &vec![1, 2, 3, 4, 5] {
+                        *self = StraightState::SmallLucky;
+                    } else if deduped_subset == &vec![2, 3, 4, 5, 6] {
+                        *self = StraightState::LargeLucky;
+                    } else {
+                        *self = StraightState::Failed;
+                    }
+                }
+            }
+            StraightState::Failed => {
+                if deduped_subset.len() >= 3 {
+                    if deduped_subset == &vec![1, 2, 3, 4, 5] {
+                        *self = StraightState::SmallStrategized;
+                    } else if deduped_subset == &vec![2, 3, 4, 5, 6] {
+                        *self = StraightState::LargeStrategized;
+                    }
+                } /*If you have failed at stege, you can't start not failing by changing strategy*/
+            }
+            _ => {/*Straight already achieved*/}
+        }
+    }
+}
+
+impl fmt::Display for StraightState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            StraightState::SmallLucky => write!(f, "Small Lucky"),
+            StraightState::LargeLucky => write!(f, "Large Lucky"),
+            StraightState::SmallStrategized => write!(f, "Small Strategized"),
+            StraightState::LargeStrategized => write!(f, "Large Strategized"),
+            StraightState::Failed => write!(f, "Failed"),
+            StraightState::No => write!(f, "No Straight"),
+        }
+        
+    }
+}
+
+//================================================================================
+// StraightState
+//================================================================================
+
+#[derive(Clone)]
+pub struct GameData {
+    pub game_uuid: String,
+    pub turns: Vec<Turn>,
+    pub final_board: Board,
+}
+
+impl GameData {
+    pub fn new(turns: Vec<Turn>, final_board: Board) -> GameData {
+        GameData {
+            game_uuid: format!("{}", Uuid::new_v4()),
+            turns,
+            final_board,
+        }
+    }
+}
+
+
+
+
+//================================================================================
+// Turn
+//================================================================================
+
+#[derive(Debug, Clone)]
+pub struct Turn {
+    pub turn_uuid: String,
+    pub turn_number: u32, /*A number 1-15, since each game consists of 15 turns*/
+    pub empty_categories_before: Vec<Category>,
+    pub hand1: Hand,
+    pub subset1: Vec<u32>,
+    pub hand2: Hand,
+    pub subset2: Vec<u32>,
+    pub hand3: Hand,
+    pub subset3: Vec<u32>,
+    pub placed_category: Option<Category>,
+    pub points: u32,
+    pub straight_state: StraightState,
+}
+
+impl Turn {
+
+    pub fn empty(&self, c: Category) -> bool {
+        self.empty_categories_before.contains(&c)
+    }
+
+    pub fn new(turn_number: u32, empty_categories_before: Vec<Category>) -> Turn {
+        Turn {
+            turn_uuid: format!("{}", Uuid::new_v4()),  //TODO: use Uuid type instead of string
+            turn_number,
+            empty_categories_before,
+            hand1: Hand::empty(),
+            subset1: Vec::new(),
+            hand2: Hand::empty(),
+            subset2: Vec::new(),
+            hand3: Hand::empty(),
+            subset3: Vec::new(),
+            placed_category: None,
+            points: 0,
+            straight_state: StraightState::No,
+        }
+    } 
+}
 
 //================================================================================
 // StraightData
@@ -70,9 +195,9 @@ impl Category {
             Category::Femmor,
             Category::Sexor,
             Category::Par,
+            Category::Tvapar,
             Category::Tretal,
             Category::Fyrtal,
-            Category::Tvapar,
             Category::LitenStraight,
             Category::StorStraight,
             Category::Kak,
@@ -330,7 +455,7 @@ impl Maskhand {
     pub fn get_maskhandmap() -> HashMap<MaskhandKey, Maskhand> {
         println!("THIS CODE SHOULD BE CALLED ONCE ONLY");
         let mut maskhandmap = HashMap::new();
-        let mut all_maskhandkeys = MaskhandKey::all_maskhandkeys();
+        let all_maskhandkeys = MaskhandKey::all_maskhandkeys();
         for maskhandkey in all_maskhandkeys {
             let maskhand = maskhandkey.expand();
             maskhandmap.insert(maskhandkey, maskhand); //TODO: efficiency here?
@@ -356,7 +481,7 @@ impl Maskhand {
 
     // S: Values the maskhand/outcomes based on the current board state, assumes no rerolls
     // Never used
-    pub fn evaluate_maskhand(&self, board: &Board) -> F {
+    /*pub fn evaluate_maskhand(&self, board: &Board) -> F {
         let mut running_count = 0;
         for (hand, instances) in self.0.iter() {
             let (raw_evalutaion, _) = hand.evaluate(board);
@@ -365,7 +490,7 @@ impl Maskhand {
         }
         let maskhand_value = F::new(running_count, self.decompressed_len() as u32);
         return maskhand_value;
-    }
+    }*/
 
     //We take in a maskhand and current_best_evalmap, being a map describng the best value for each hand in the current step,
     //and using these two we calculate the weighted value of the maskhand in the current step
@@ -398,7 +523,15 @@ pub struct MaskhandKey {
     pub mask: Mask,
 }
 
-pub fn is_subset_straight(subset: &mut Vec<u32>) -> bool {
+/*pub fn determine_straightness(hand: &Hand, mask: &Mask) -> u32 {
+    let maskhand_to_subset = MaskhandKey::from(hand.clone(), *mask);
+    let mut subset = maskhand_to_subset.merge_to_subset();
+    subset.sort();
+    let mut duplicate_free_subset = subset.clone();
+    return (duplicate_free_subset.len() as u32)
+}*/
+
+/*pub fn is_subset_straight(subset: &mut Vec<u32>) -> bool {
     if subset.len() < 3 {
         return false;
     }
@@ -410,7 +543,7 @@ pub fn is_subset_straight(subset: &mut Vec<u32>) -> bool {
     } else {
         return false;
     }
-}
+}*/
 
 impl MaskhandKey {
     //Turns the MaskhandKey into a Subset - will be used later for finding out when the algorithm is going for straight

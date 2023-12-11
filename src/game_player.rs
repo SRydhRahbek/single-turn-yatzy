@@ -1,29 +1,143 @@
 use fraction::GenericFraction;
 use std::collections::HashMap;
-use uuid::Uuid;
 //use std::sync::Arc;
 type F = GenericFraction<u32>;
-use crate::logic::{Board, Category, Hand, Mask, Maskhand, MaskhandKey, is_subset_straight, StraightData};
+use crate::logic::{Board, Category, Hand, Mask, Maskhand, MaskhandKey, StraightData, Turn, GameData};
 //use fraction::convert::TryToConvertFrom;
 use std::fmt;
 
-pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> (String, Vec<StraightData>) {
+pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> (String, Vec<StraightData>, GameData) {
+    let mut board = Board::new(); // S:   Create a board with a 0 in 'Chance' with Board::zero_chance()
+    
     //Initialize the game
-    let empty_return_mask = Mask::empty();
-    let all_hands = Hand::all_hands();
-
-    let mut board = Board::zero_chance(); // S:   Create a board with a 0 in 'Chance' with Board::zero_chance()
+    let (
+        empty_return_mask, all_hands, crossout_order_list, mut empty_categories, mut straight_data_vec, mut turn_number, mut turn_vec
+    ) = (
+        Mask::empty(), Hand::all_hands(), selected_crossout_order_list(), board.empty_categories(), Vec::new(), 1, Vec::new()
+    );
 
     //HashMap to match each hand in the final step to it's point value in each caregory
     let mut final_step_evalmap: HashMap<&Hand, HashMap<Category, u32>> = HashMap::new();
+    for hand in &all_hands {final_step_evalmap.insert(hand, hand.evaluate_and_stack());}
+    
+    loop {
+        let mut current_turn = Turn::new(turn_number, empty_categories.clone());
 
-    //Add stuff to aforementioned hashmap
-    for hand in &all_hands {
-        final_step_evalmap.insert(hand, hand.evaluate_and_stack());
+        let (step1_best_evalmap, step2_best_evalmap, step3_best_evalmap) = generate_all_evalmaps(&empty_categories, &all_hands, &final_step_evalmap, &empty_return_mask, &maskhandmap);
+        
+        
+        let mut hand = Hand::random();
+        let best_mask = step1_best_evalmap
+            .get(&hand)
+            .expect("step1 best doesn't contain all hands")
+            .0;
+        analyze_roll(&mut current_turn, &mut straight_data_vec, hand.clone(), *best_mask, 1, &empty_categories);
+
+        hand.reroll_with_mask(&best_mask);
+        let best_mask = step2_best_evalmap
+            .get(&hand)
+            .expect("step2 best doesn't contain all hands")
+            .0;
+        analyze_roll(&mut current_turn, &mut straight_data_vec, hand.clone(), *best_mask, 2, &empty_categories);
+        
+        hand.reroll_with_mask(&best_mask);
+        let best_mask = step3_best_evalmap  //This step is only done for analysis purposes, hand.evaluate() works fine without it
+            .get(&hand)
+            .expect("step3 best doesn't contain all hands")
+            .0;
+        analyze_roll(&mut current_turn, &mut straight_data_vec, hand.clone(), *best_mask, 3, &empty_categories);
+
+        let hand_value_category = hand.evaluate(&board);
+        
+        current_turn.placed_category = hand_value_category.1.clone();
+        current_turn.points = hand_value_category.0;
+
+        if let Some(category) = hand_value_category.1 {
+            board.place_value_in_category(hand_value_category.0, category);
+            empty_categories = empty_categories
+                .into_iter()
+                .filter(|x| x != &category)
+                .collect();
+        } else {
+            for category in &crossout_order_list {
+                if empty_categories.contains(category) {
+                    board.place_value_in_category(0, *category);
+                    empty_categories = empty_categories
+                        .into_iter()
+                        .filter(|x| x != category)
+                        .collect();
+                    break;
+                }
+            }
+        }
+        turn_vec.push(current_turn);
+        turn_number += 1;
+        if empty_categories.len() == 0 {break;}
+        
+    }
+    let game_data: GameData = GameData::new(turn_vec, board.clone());
+    let analysis: BoardAnalysis = BoardAnalysis::new(&board);
+
+    //println!("Board: {}", board);
+    //println!("{}", analysis);
+
+    let analysis_string: String = analysis.create_analysis_string();
+
+    return (analysis_string, straight_data_vec, game_data);
+}
+
+fn analyze_roll(turn: &mut Turn, straight_data_vec: &mut Vec<StraightData>, hand: Hand, best_mask: Mask, slag: u32, empty_categories: &Vec<Category>) {
+    let maskhand_to_subset = MaskhandKey::from(hand.clone(), best_mask);
+    let mut subset = maskhand_to_subset.merge_to_subset();
+    subset.sort();
+    let mut duplicate_free_subset = subset.clone();
+    duplicate_free_subset.dedup();
+    turn.straight_state.update(&duplicate_free_subset);
+    match slag {
+        1 => {
+            turn.subset1 = subset.clone();
+            turn.hand1 = hand.clone();
+        }
+        2 => {
+            turn.subset2 = subset.clone();
+            turn.hand2 = hand.clone();
+        }
+        3 => {
+            turn.subset3 = subset.clone();
+            turn.hand3 = hand.clone();
+        }
+        _ => {}
+    }
+    if duplicate_free_subset.len() == subset.len() && duplicate_free_subset.len() >= 3 {
+        straight_data_vec.push(StraightData::new(hand.clone(), subset, 2, empty_categories.clone(), turn.turn_uuid.clone()))
     }
 
-    //TODO: input the actual order in which we want to cross out the categories
-    let crossout_order_list = Category::all_categories();
+    /*if duplicate_free_subset.len() = 5 {
+        turn.straight_state = StraightState::Failed;
+    }
+
+    if is_subset_straight(&mut subset) {
+        straight_data_vec.push(StraightData::new(hand.clone(), subset, 2, empty_categories.clone(), uuid.clone()))
+    }*/
+}
+
+
+fn generate_all_evalmaps<'a>(empty_categories: &'a Vec<Category>, all_hands: &'a Vec<Hand>, final_step_evalmap: &'a HashMap<&Hand, HashMap<Category, u32>>, empty_return_mask: &'a Mask, maskhandmap: &'a HashMap<MaskhandKey, Maskhand>) -> (HashMap<&'a Hand, (&'a Mask, F)>, HashMap<&'a Hand, (&'a Mask, F)>, HashMap<&'a Hand, (&'a Mask, F)>) {
+    let step3_best_evalmap = get_final_step_best_evalmap(
+        empty_categories,
+        all_hands,
+        final_step_evalmap,
+        empty_return_mask,
+    );
+    let step2_evalmap = get_next_evalmap(maskhandmap, &step3_best_evalmap);
+    let step2_best_evalmap = transform_to_best_evalmap(/*maskhandmap,*/ step2_evalmap);
+    let step1_evalmap = get_next_evalmap(maskhandmap, &step2_best_evalmap);
+    let step1_best_evalmap = transform_to_best_evalmap(/*maskhandmap,*/ step1_evalmap);
+    return (step1_best_evalmap, step2_best_evalmap, step3_best_evalmap);
+}
+
+fn selected_crossout_order_list() -> Vec<Category> {
+    //let crossout_order_list = Category::all_categories();
     let sara_crossout_order_list: Vec<Category> = vec![
         Category::Ettor,
         Category::Yatzy,
@@ -41,7 +155,7 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> (String, Vec<St
         Category::Sexor,
         Category::Chans,
     ];
-    let david_crossout_order_list: Vec<Category> = vec![
+    /*let david_crossout_order_list: Vec<Category> = vec![
         Category::LitenStraight,
         Category::StorStraight,
         Category::Yatzy,
@@ -57,103 +171,8 @@ pub fn play_game(maskhandmap: HashMap<MaskhandKey, Maskhand>) -> (String, Vec<St
         Category::Femmor,
         Category::Sexor,
         Category::Chans,
-    ];
-
-    let mut empty_categories = board.empty_categories();
-    let mut straight_data_vec: Vec<StraightData> = Vec::new();
-    loop {
-        let step3_best_evalmap = get_final_step_best_evalmap(
-            &empty_categories,
-            &all_hands,
-            &final_step_evalmap,
-            &empty_return_mask,
-        );
-        let step2_evalmap = get_next_evalmap(&maskhandmap, &step3_best_evalmap);
-        let step2_best_evalmap = transform_to_best_evalmap(&maskhandmap, step2_evalmap);
-        let step1_evalmap = get_next_evalmap(&maskhandmap, &step2_best_evalmap);
-        let step1_best_evalmap = transform_to_best_evalmap(&maskhandmap, step1_evalmap);
-        let uuid = format!("{}", Uuid::now_v7());
-        let mut hand = Hand::random();
-        let best_mask = step1_best_evalmap
-            .get(&hand)
-            .expect("step1 best doesn't contain all hands")
-            .0;
-
-        let maskhand_to_subset = MaskhandKey::from(hand.clone(), *best_mask);
-        let mut subset = maskhand_to_subset.merge_to_subset();
-        if is_subset_straight(&mut subset) {
-            straight_data_vec.push(StraightData::new(hand.clone(), subset, 1, empty_categories.clone(), uuid.clone()))
-        }
-
-        hand.reroll_with_mask(&best_mask);
-        let best_mask = step2_best_evalmap
-            .get(&hand)
-            .expect("step2 best doesn't contain all hands")
-            .0;
-
-        let maskhand_to_subset = MaskhandKey::from(hand.clone(), *best_mask);
-        let mut subset = maskhand_to_subset.merge_to_subset();
-        if is_subset_straight(&mut subset) {
-            straight_data_vec.push(StraightData::new(hand.clone(), subset, 2, empty_categories.clone(), uuid.clone()))
-        }
-
-        hand.reroll_with_mask(&best_mask);
-        if is_subset_straight(&mut hand.0.clone()) {
-            straight_data_vec.push(StraightData::new(hand.clone(), hand.0.clone(), 3, empty_categories.clone(), uuid.clone()));
-        }
-        //println!("{hand:?}");
-        let hand_value_category = hand.evaluate(&board);
-
-
-        if let Some(category) = hand_value_category.1 {
-            board.place_value_in_category(hand_value_category.0, category);
-            empty_categories = empty_categories
-                .into_iter()
-                .filter(|x| x != &category)
-                .collect();
-        } else {
-            for category in &david_crossout_order_list {
-                // can switch crossout order list
-                if empty_categories.contains(category) {
-                    board.place_value_in_category(0, *category);
-                    empty_categories = empty_categories
-                        .into_iter()
-                        .filter(|x| x != category)
-                        .collect();
-                }
-            }
-        }
-        if empty_categories.len() == 0 {
-            break;
-        }
-    }
-    let analysis: BoardAnalysis = BoardAnalysis::new(&board);
-
-    //println!("Board: {}", board);
-    //println!("{}", analysis);
-
-    let analysis_string: String = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-        analysis.finalboard[&Category::Ettor],
-        analysis.finalboard[&Category::Tvaor],
-        analysis.finalboard[&Category::Treor],
-        analysis.finalboard[&Category::Fyror],
-        analysis.finalboard[&Category::Femmor],
-        analysis.finalboard[&Category::Sexor],
-        analysis.finalboard[&Category::Par],
-        analysis.finalboard[&Category::Tvapar],
-        analysis.finalboard[&Category::Tretal],
-        analysis.finalboard[&Category::Fyrtal],
-        analysis.finalboard[&Category::LitenStraight],
-        analysis.finalboard[&Category::StorStraight],
-        analysis.finalboard[&Category::Kak],
-        analysis.finalboard[&Category::Chans],
-        analysis.finalboard[&Category::Yatzy],
-        analysis.bonus,
-        analysis.total_score
-    );
-
-    return (analysis_string, straight_data_vec);
+    ];*/
+    return sara_crossout_order_list;
 }
 
 //=======================================
@@ -201,7 +220,7 @@ fn get_next_evalmap<'a>(
 //Takes in an evalmap which assigns a value to each possible combination of mask and hand, and extracts the best value for each hand in it
 //The input evalmap should already have taken into account that some fields may be taken, and thus a board should not be needed in the input
 fn transform_to_best_evalmap<'a>(
-    maskhandmap: &'a HashMap<MaskhandKey, Maskhand>,
+    /*maskhandmap: &'a HashMap<MaskhandKey, Maskhand>,*/
     next_evalmap: HashMap<&'a MaskhandKey, F>,
 ) -> HashMap<&'a Hand, (&'a Mask, F)> {
     //Create an empty map where we place the best hands from next_evalmap
@@ -275,6 +294,29 @@ impl BoardAnalysis {
             //fill_chance,
             total_score, //including bonus and non-zero category Chance
         }
+    }
+
+    fn create_analysis_string(&self) -> String {
+        format!(
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            self.finalboard[&Category::Ettor],
+            self.finalboard[&Category::Tvaor],
+            self.finalboard[&Category::Treor],
+            self.finalboard[&Category::Fyror],
+            self.finalboard[&Category::Femmor],
+            self.finalboard[&Category::Sexor],
+            self.finalboard[&Category::Par],
+            self.finalboard[&Category::Tvapar],
+            self.finalboard[&Category::Tretal],
+            self.finalboard[&Category::Fyrtal],
+            self.finalboard[&Category::LitenStraight],
+            self.finalboard[&Category::StorStraight],
+            self.finalboard[&Category::Kak],
+            self.finalboard[&Category::Chans],
+            self.finalboard[&Category::Yatzy],
+            self.bonus,
+            self.total_score
+        )
     }
 }
 
