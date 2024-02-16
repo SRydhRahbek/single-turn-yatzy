@@ -234,7 +234,7 @@ fn transform_to_best_evalmap<'a>(
         //If the hand we are comparing hasn't been evaluated before, we pretend its previous evaluation is our fallback value, eg. The Empty Hand, with the value of 0
         let (_, current_best_handvalue) =
             next_best_evalmap.get(&maskhandkey.hand).unwrap_or(fallback);
-        if value > *current_best_handvalue {
+        if value >= *current_best_handvalue {
             next_best_evalmap.insert(&maskhandkey.hand, (&maskhandkey.mask, value));
         }
     }

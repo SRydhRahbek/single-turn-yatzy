@@ -1,7 +1,9 @@
 [package]
-name = "yatzy-project"
+name = "single-turn-yatzy"
 version = "0.1.0"
 edition = "2021"
+authors = ["J. Leffler <drgarlicbread@proton.me>", "S. Rydh Rabek <hemliganka@yahoo.com>"]
+license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
